@@ -1,0 +1,2372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Water Polo Arcade</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:ital,wght@0,600;0,700;1,700&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none;
+        }
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #061826;
+            font-family: 'Inter', sans-serif;
+        }
+        .font-sport {
+            font-family: 'Chakra Petch', sans-serif;
+        }
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: radial-gradient(circle at center, #0b2d48 0%, #04101a 100%);
+        }
+        canvas {
+            display: block;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7), 0 0 0 4px #1e3a5f;
+            border-radius: 12px;
+            max-width: 100%;
+            max-height: 100%;
+        }
+        @keyframes slideBanner {
+            0% { transform: translate(-50%, -50%) scale(0.5) rotate(-5deg); opacity: 0; }
+            15% { transform: translate(-50%, -50%) scale(1.1) rotate(2deg); opacity: 1; }
+            25% { transform: translate(-50%, -50%) scale(1) rotate(0deg); opacity: 1; }
+            85% { transform: translate(-50%, -50%) scale(1) rotate(0deg); opacity: 1; }
+            100% { transform: translate(-50%, -50%) scale(1.3); opacity: 0; }
+        }
+        .banner-anim {
+            animation: slideBanner 2.2s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+        }
+        .glass-panel {
+            background: rgba(10, 30, 50, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(56, 189, 248, 0.25);
+        }
+        .btn-sport {
+            background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+            border: 1px solid #38bdf8;
+            box-shadow: 0 4px 15px rgba(2, 132, 199, 0.4);
+            transition: all 0.15s ease;
+        }
+        .btn-sport:hover {
+            background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(14, 165, 233, 0.6);
+        }
+        .btn-sport:active {
+            transform: translateY(1px);
+        }
+        /* Mobile & Touch Controls */
+        .touch-zone {
+            position: fixed;
+            bottom: max(16px, env(safe-area-inset-bottom));
+            z-index: 35;
+            display: flex;
+            pointer-events: none;
+        }
+        .touch-zone > * {
+            pointer-events: auto;
+        }
+        .touch-btn {
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            transition: transform 0.08s ease, box-shadow 0.1s ease;
+        }
+        .touch-btn:active, .touch-btn.active-touch {
+            transform: scale(0.92);
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <!-- Main Game Canvas -->
+    <canvas id="poolCanvas"></canvas>
+
+    <!-- Live Scoreboard & HUD (Top Center) -->
+    <div id="hud" class="hidden absolute top-3 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center pointer-events-none w-full max-w-2xl px-2">
+        <div class="glass-panel rounded-2xl px-4 py-2 flex items-center justify-between gap-4 sm:gap-8 shadow-2xl border-t-2 border-sky-400">
+            <!-- Home Team -->
+            <div class="flex items-center gap-2 sm:gap-3">
+                <div id="hud-home-cap" class="w-6 h-6 sm:w-8 sm:h-8 rounded-full border-2 border-white shadow-inner flex items-center justify-center font-sport font-bold text-xs text-white">H</div>
+                <span id="hud-home-name" class="font-sport font-bold text-white text-sm sm:text-lg tracking-wider uppercase">HOME</span>
+                <span id="hud-home-score" class="font-sport font-bold text-2xl sm:text-4xl text-sky-400 ml-1">0</span>
+            </div>
+
+            <!-- Clocks -->
+            <div class="flex flex-col items-center bg-slate-950/80 px-3 py-1 rounded-xl border border-slate-700/80">
+                <div class="flex items-center gap-2">
+                    <span id="hud-quarter" class="text-xs font-extrabold text-amber-400 uppercase tracking-widest">Q1</span>
+                    <span class="text-slate-600">|</span>
+                    <span id="hud-game-clock" class="font-sport font-bold text-white text-base sm:text-xl tracking-wider">02:00</span>
+                </div>
+                <div class="flex items-center gap-1 mt-0.5">
+                    <span class="text-[10px] text-slate-400 uppercase font-semibold">SHOT</span>
+                    <span id="hud-shot-clock" class="font-sport font-bold text-sm sm:text-base text-emerald-400">30</span>
+                </div>
+            </div>
+
+            <!-- Away Team -->
+            <div class="flex items-center gap-2 sm:gap-3">
+                <span id="hud-away-score" class="font-sport font-bold text-2xl sm:text-4xl text-rose-400 mr-1">0</span>
+                <span id="hud-away-name" class="font-sport font-bold text-white text-sm sm:text-lg tracking-wider uppercase">AWAY</span>
+                <div id="hud-away-cap" class="w-6 h-6 sm:w-8 sm:h-8 rounded-full border-2 border-white shadow-inner flex items-center justify-center font-sport font-bold text-xs text-white">A</div>
+            </div>
+        </div>
+
+        <!-- Shot Type / Action Pill Indicator -->
+        <div id="hud-status-pill" class="mt-1.5 px-3 py-0.5 rounded-full bg-slate-900/80 border border-sky-500/30 text-[10px] sm:text-xs font-semibold text-sky-200 tracking-wide uppercase shadow text-center">
+            Drag Left Stick to Swim • Tap Pool to Aim • Tap Pass / Hold Shoot
+        </div>
+    </div>
+
+    <!-- Top Right Utility Buttons -->
+    <div id="hud-controls" class="hidden absolute top-3 right-3 z-20 flex gap-2">
+        <button id="btn-mute" class="glass-panel p-2.5 rounded-xl text-white hover:bg-sky-900/50 transition" title="Toggle Sound">
+            <svg id="icon-sound-on" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path></svg>
+            <svg id="icon-sound-off" class="w-5 h-5 hidden text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15zM17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"></path></svg>
+        </button>
+        <button id="btn-pause" class="glass-panel p-2.5 rounded-xl text-white hover:bg-sky-900/50 transition" title="Pause Match">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+        </button>
+    </div>
+
+    <!-- Dynamic Event Banner (Goal, Turnover, Quarter End, Swim-Off) -->
+    <div id="event-banner" class="hidden absolute top-1/2 left-1/2 z-30 pointer-events-none text-center">
+        <div id="banner-card" class="px-8 py-4 rounded-2xl bg-gradient-to-r from-sky-600 via-blue-500 to-cyan-500 border-2 border-white shadow-[0_0_40px_rgba(14,165,233,0.9)]">
+            <h2 id="banner-title" class="font-sport font-bold text-4xl sm:text-6xl text-white italic tracking-wider drop-shadow-md uppercase">GOAL!</h2>
+            <p id="banner-sub" class="text-sky-100 font-bold text-sm sm:text-lg tracking-widest uppercase mt-1">SKIP SHOT BOTTOM CORNER</p>
+        </div>
+    </div>
+
+    <!-- START MENU OVERLAY -->
+    <div id="menu-overlay" class="absolute inset-0 z-40 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-sm">
+        <div class="glass-panel w-full max-w-xl rounded-3xl p-6 sm:p-8 shadow-2xl border-t-2 border-sky-400 text-white">
+            <div class="text-center mb-6">
+                <div class="inline-block px-3 py-1 rounded-full bg-sky-500/20 border border-sky-400/40 text-sky-300 text-xs font-bold tracking-widest uppercase mb-2">
+                    Arcade Aquatic Action
+                </div>
+                <h1 class="font-sport font-bold text-4xl sm:text-5xl italic tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-white via-sky-200 to-cyan-400 drop-shadow">
+                    WATER POLO ARCADE
+                </h1>
+                <p class="text-slate-300 text-xs sm:text-sm mt-1">Tactical 5v5 water polo. Outswim, pass, skip-shot & lob your way to victory!</p>
+            </div>
+
+            <!-- Match Customization Grid -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                <!-- Team Color Picker -->
+                <div class="bg-slate-900/70 p-4 rounded-2xl border border-slate-700/70">
+                    <label class="block text-xs font-bold text-sky-300 uppercase tracking-wider mb-2">Your Cap Color</label>
+                    <div id="color-options" class="flex justify-between gap-2">
+                        <button data-color="#ffffff" data-text="#0f172a" data-name="WHITE CAPS" class="color-btn w-9 h-9 rounded-full bg-white border-2 border-sky-400 ring-2 ring-sky-400 scale-110 transition"></button>
+                        <button data-color="#0284c7" data-text="#ffffff" data-name="AZURE SHARKS" class="color-btn w-9 h-9 rounded-full bg-sky-600 border-2 border-white/40 transition"></button>
+                        <button data-color="#f59e0b" data-text="#0f172a" data-name="GOLD TITANS" class="color-btn w-9 h-9 rounded-full bg-amber-500 border-2 border-white/40 transition"></button>
+                        <button data-color="#10b981" data-text="#ffffff" data-name="EMERALD CROCS" class="color-btn w-9 h-9 rounded-full bg-emerald-500 border-2 border-white/40 transition"></button>
+                        <button data-color="#8b5cf6" data-text="#ffffff" data-name="VIOLET VIPERS" class="color-btn w-9 h-9 rounded-full bg-violet-500 border-2 border-white/40 transition"></button>
+                    </div>
+                    <p id="selected-team-label" class="text-xs font-bold text-white mt-2 text-center">WHITE CAPS</p>
+                </div>
+
+                <!-- Difficulty & Format -->
+                <div class="bg-slate-900/70 p-4 rounded-2xl border border-slate-700/70 flex flex-col justify-between">
+                    <div>
+                        <label class="block text-xs font-bold text-sky-300 uppercase tracking-wider mb-2">AI Difficulty</label>
+                        <div class="grid grid-cols-3 gap-1.5" id="difficulty-selector">
+                            <button data-diff="rookie" class="diff-btn py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-300 border border-slate-700">ROOKIE</button>
+                            <button data-diff="pro" class="diff-btn py-1.5 rounded-lg text-xs font-bold bg-sky-600 text-white border border-sky-400">PRO</button>
+                            <button data-diff="olympic" class="diff-btn py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-300 border border-slate-700">OLYMPIC</button>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <label class="block text-xs font-bold text-sky-300 uppercase tracking-wider mb-1">Format</label>
+                        <div class="grid grid-cols-2 gap-1.5" id="mode-selector">
+                            <button data-mode="5" class="mode-btn py-1 rounded-lg text-xs font-bold bg-sky-600 text-white border border-sky-400">5v5 FULL</button>
+                            <button data-mode="4" class="mode-btn py-1 rounded-lg text-xs font-bold bg-slate-800 text-slate-300 border border-slate-700">4v4 BLITZ</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Controls Guide -->
+            <div class="bg-slate-950/60 rounded-2xl p-4 mb-6 border border-slate-800 text-xs text-slate-300 space-y-1.5">
+                <div class="font-bold text-sky-400 uppercase tracking-wider mb-1">Touch & Mobile Controls</div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5">
+                    <div><span class="text-white font-bold">Left Thumb Stick:</span> Swim & Eggbeater</div>
+                    <div><span class="text-white font-bold">Tap / Drag Pool:</span> Aim Pass or Shot</div>
+                    <div><span class="text-white font-bold">PASS / SHOOT (Tap):</span> Crisp Pass</div>
+                    <div><span class="text-white font-bold">PASS / SHOOT (Hold):</span> Power / Skip Shot</div>
+                    <div><span class="text-white font-bold">LOB Button:</span> High Arc Lob Over Goalie</div>
+                    <div><span class="text-white font-bold">SPRINT & STEAL:</span> Burst Speed & Lunge</div>
+                </div>
+            </div>
+
+            <button id="btn-start-match" class="btn-sport w-full py-4 rounded-2xl font-sport font-bold text-xl sm:text-2xl text-white tracking-wider uppercase cursor-pointer">
+                SWIM-OFF & START MATCH
+            </button>
+        </div>
+    </div>
+
+    <!-- PAUSE OVERLAY -->
+    <div id="pause-overlay" class="hidden absolute inset-0 z-40 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-sm">
+        <div class="glass-panel w-full max-w-sm rounded-3xl p-6 text-center text-white border-t-2 border-sky-400">
+            <h2 class="font-sport font-bold text-3xl italic mb-2">TIMEOUT CALLED</h2>
+            <p class="text-slate-300 text-sm mb-6">Game paused. Catch your breath!</p>
+            <div class="space-y-3">
+                <button id="btn-resume" class="btn-sport w-full py-3 rounded-xl font-sport font-bold text-lg uppercase">Resume Match</button>
+                <button id="btn-quit" class="w-full py-3 rounded-xl font-sport font-bold text-lg uppercase bg-slate-800 hover:bg-slate-700 border border-slate-600 transition">Quit to Menu</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- POST-MATCH SUMMARY OVERLAY -->
+    <div id="gameover-overlay" class="hidden absolute inset-0 z-40 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
+        <div class="glass-panel w-full max-w-md rounded-3xl p-6 sm:p-8 text-center text-white border-t-2 border-amber-400 shadow-2xl">
+            <div id="result-badge" class="inline-block px-4 py-1 rounded-full bg-amber-500/20 border border-amber-400 text-amber-300 text-xs font-extrabold uppercase tracking-widest mb-2">
+                FINAL BUZZER
+            </div>
+            <h2 id="result-title" class="font-sport font-bold text-4xl sm:text-5xl italic text-white mb-4">VICTORY!</h2>
+
+            <div class="flex items-center justify-center gap-6 bg-slate-900/90 py-4 px-6 rounded-2xl border border-slate-700 mb-6">
+                <div class="text-center">
+                    <div id="end-home-name" class="text-xs font-bold text-sky-300 uppercase">HOME</div>
+                    <div id="end-home-score" class="font-sport font-bold text-5xl text-white">0</div>
+                </div>
+                <div class="font-sport text-2xl text-slate-500 font-bold">VS</div>
+                <div class="text-center">
+                    <div id="end-away-name" class="text-xs font-bold text-rose-400 uppercase">AWAY</div>
+                    <div id="end-away-score" class="font-sport font-bold text-5xl text-white">0</div>
+                </div>
+            </div>
+
+            <!-- Match Stats -->
+            <div class="bg-slate-950/60 rounded-2xl p-4 mb-6 text-xs space-y-2 border border-slate-800">
+                <div class="flex justify-between text-slate-300">
+                    <span>Shots on Goal</span>
+                    <span class="font-bold text-white"><span id="stat-home-shots">0</span> - <span id="stat-away-shots">0</span></span>
+                </div>
+                <div class="flex justify-between text-slate-300">
+                    <span>Steals & Blocks</span>
+                    <span class="font-bold text-white"><span id="stat-home-steals">0</span> - <span id="stat-away-steals">0</span></span>
+                </div>
+                <div class="flex justify-between text-slate-300">
+                    <span>Goalkeeper Saves</span>
+                    <span class="font-bold text-white"><span id="stat-home-saves">0</span> - <span id="stat-away-saves">0</span></span>
+                </div>
+            </div>
+
+            <div class="flex gap-3">
+                <button id="btn-rematch" class="btn-sport flex-1 py-3.5 rounded-xl font-sport font-bold text-lg uppercase">Rematch</button>
+                <button id="btn-menu-end" class="flex-1 py-3.5 rounded-xl font-sport font-bold text-lg uppercase bg-slate-800 hover:bg-slate-700 border border-slate-600 transition">Main Menu</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MOBILE TOUCH CONTROLS -->
+    <div id="touch-left" class="touch-zone hidden left-3 sm:left-6">
+        <div id="joystick-base" class="w-32 h-32 sm:w-36 sm:h-36 rounded-full bg-slate-900/55 border-2 border-sky-400/60 backdrop-blur-md relative flex items-center justify-center shadow-[0_0_25px_rgba(2,132,199,0.35)]">
+            <div class="w-20 h-20 rounded-full border border-sky-400/20 pointer-events-none"></div>
+            <div id="joystick-knob" class="w-14 h-14 rounded-full bg-gradient-to-br from-sky-300 to-sky-500 border-2 border-white shadow-xl pointer-events-none"></div>
+        </div>
+    </div>
+    <div id="touch-right" class="touch-zone hidden right-3 sm:right-6 flex-col gap-2.5 items-end">
+        <div class="flex gap-2.5 items-center">
+            <button id="touch-lob" class="touch-btn w-16 h-16 rounded-full bg-amber-500/85 border-2 border-amber-200 font-sport font-bold text-xs sm:text-sm text-white shadow-lg flex flex-col items-center justify-center leading-tight">
+                <span>LOB</span>
+                <span class="text-[9px] font-normal opacity-90">ARC</span>
+            </button>
+            <button id="touch-sprint" class="touch-btn w-16 h-16 rounded-full bg-cyan-500/85 border-2 border-cyan-200 font-sport font-bold text-xs sm:text-sm text-white shadow-lg flex flex-col items-center justify-center leading-tight">
+                <span>SPRINT</span>
+                <span class="text-[9px] font-normal opacity-90">HOLD</span>
+            </button>
+        </div>
+        <div class="flex gap-2.5 items-center">
+            <button id="touch-switch" class="touch-btn w-16 h-16 sm:w-18 sm:h-18 rounded-full bg-slate-800/90 border-2 border-sky-300/80 font-sport font-bold text-[11px] sm:text-xs text-white shadow-lg flex flex-col items-center justify-center leading-tight px-1 text-center">
+                <span>SWITCH</span>
+                <span class="text-[9px] text-emerald-300">STEAL</span>
+            </button>
+            <button id="touch-shoot" class="touch-btn w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-gradient-to-br from-rose-500 to-red-600 border-2 border-white font-sport font-bold text-sm sm:text-base text-white shadow-[0_0_25px_rgba(244,63,94,0.5)] flex flex-col items-center justify-center leading-tight">
+                <span>PASS</span>
+                <span class="text-[10px] font-semibold tracking-wider text-amber-200">HOLD: SHOT</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+/**
+ * ============================================================================
+ * WATER POLO RIVALS - Core Game Engine
+ * ============================================================================
+ */
+
+// --- WEB AUDIO SYNTHESIZER (Zero external asset URLs) ---
+class SoundFX {
+    constructor() {
+        this.ctx = null;
+        this.muted = false;
+    }
+
+    init() {
+        if (!this.ctx) {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            if (AudioContext) this.ctx = new AudioContext();
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+            this.ctx.resume();
+        }
+    }
+
+    playWhistle(duration = 0.45, double = false) {
+        if (this.muted) return;
+        this.init();
+        if (!this.ctx) return;
+
+        const trigger = (offset) => {
+            const now = this.ctx.currentTime + offset;
+            const osc = this.ctx.createOscillator();
+            const lfo = this.ctx.createOscillator();
+            const lfoGain = this.ctx.createGain();
+            const gain = this.ctx.createGain();
+
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(2850, now);
+            osc.frequency.exponentialRampToValueAtTime(2720, now + duration);
+
+            // Pea-whistle trill effect
+            lfo.frequency.value = 38;
+            lfoGain.gain.value = 110;
+            lfo.connect(lfoGain);
+            lfoGain.connect(osc.frequency);
+
+            gain.gain.setValueAtTime(0.001, now);
+            gain.gain.linearRampToValueAtTime(0.18, now + 0.03);
+            gain.gain.setValueAtTime(0.16, now + duration - 0.05);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+
+            osc.start(now);
+            lfo.start(now);
+            osc.stop(now + duration);
+            lfo.stop(now + duration);
+        };
+
+        trigger(0);
+        if (double) trigger(duration + 0.12);
+    }
+
+    playSplash(intensity = 0.5) {
+        if (this.muted) return;
+        this.init();
+        if (!this.ctx) return;
+
+        const now = this.ctx.currentTime;
+        const bufferSize = this.ctx.sampleRate * 0.28;
+        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+            data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.35));
+        }
+
+        const noise = this.ctx.createBufferSource();
+        noise.buffer = buffer;
+
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.setValueAtTime(600 + intensity * 500, now);
+        filter.Q.value = 1.2;
+
+        const gain = this.ctx.createGain();
+        gain.gain.setValueAtTime(0.18 * intensity, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+
+        noise.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.ctx.destination);
+        noise.start(now);
+    }
+
+    playThrow(isPower = false) {
+        if (this.muted) return;
+        this.init();
+        if (!this.ctx) return;
+
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(isPower ? 320 : 240, now);
+        osc.frequency.exponentialRampToValueAtTime(90, now + 0.14);
+
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.14);
+    }
+
+    playPostClank() {
+        if (this.muted) return;
+        this.init();
+        if (!this.ctx) return;
+
+        const now = this.ctx.currentTime;
+        [520, 1180, 1790].forEach((freq, idx) => {
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, now);
+            gain.gain.setValueAtTime(0.15 / (idx + 1), now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(now);
+            osc.stop(now + 0.35);
+        });
+    }
+
+    playGoalHorn() {
+        if (this.muted) return;
+        this.init();
+        if (!this.ctx) return;
+
+        const now = this.ctx.currentTime;
+        [146.83, 185.00, 220.00].forEach(freq => {
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(freq, now);
+
+            const filter = this.ctx.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.value = 900;
+
+            gain.gain.setValueAtTime(0.001, now);
+            gain.gain.linearRampToValueAtTime(0.12, now + 0.08);
+            gain.gain.setValueAtTime(0.12, now + 0.75);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 1.1);
+
+            osc.connect(filter);
+            filter.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(now);
+            osc.stop(now + 1.1);
+        });
+    }
+}
+
+const sfx = new SoundFX();
+
+// --- CANVAS & WORLD CONSTANTS ---
+const canvas = document.getElementById('poolCanvas');
+const ctx = canvas.getContext('2d');
+
+// Virtual logical pool dimensions (scales cleanly to any screen)
+const WORLD_W = 1280;
+const WORLD_H = 740;
+
+// Pool playing boundaries inside the deck
+const POOL_LEFT = 110;
+const POOL_RIGHT = WORLD_W - 110;
+const POOL_TOP = 90;
+const POOL_BOTTOM = WORLD_H - 70;
+const POOL_W = POOL_RIGHT - POOL_LEFT;
+const POOL_H = POOL_BOTTOM - POOL_TOP;
+
+// Water Polo Official Lines (Scaled)
+const GOAL_WIDTH = 156;
+const GOAL_DEPTH = 46;
+const GOAL_TOP = WORLD_H / 2 - GOAL_WIDTH / 2 + 10;
+const GOAL_BOTTOM = WORLD_H / 2 + GOAL_WIDTH / 2 + 10;
+const GOAL_CENTER_Y = (GOAL_TOP + GOAL_BOTTOM) / 2;
+
+const LINE_2M_LEFT = POOL_LEFT + POOL_W * 0.08;
+const LINE_2M_RIGHT = POOL_RIGHT - POOL_W * 0.08;
+const LINE_6M_LEFT = POOL_LEFT + POOL_W * 0.22;
+const LINE_6M_RIGHT = POOL_RIGHT - POOL_W * 0.22;
+const HALF_POOL_X = POOL_LEFT + POOL_W / 2;
+
+// --- GAME CONFIGURATION & STATE ---
+const config = {
+    teamSize: 5, // 4 field + 1 GK (or 3 field + 1 GK in 4v4)
+    difficulty: 'pro',
+    quarterDuration: 90, // 1:30 per quarter
+    totalQuarters: 4,
+    homeColor: '#ffffff',
+    homeText: '#0f172a',
+    homeName: 'WHITE CAPS',
+    awayColor: '#e11d48',
+    awayText: '#ffffff',
+    awayName: 'CRIMSON SQUAD'
+};
+
+const DIFFICULTY_SETTINGS = {
+    rookie:  { aiSpeed: 0.72, reactionTime: 1.85, shotAccuracy: 0.62, stealChance: 0.25, gkSkill: 0.58 },
+    pro:     { aiSpeed: 0.86, reactionTime: 1.40, shotAccuracy: 0.78, stealChance: 0.42, gkSkill: 0.74 },
+    olympic: { aiSpeed: 0.98, reactionTime: 1.05, shotAccuracy: 0.90, stealChance: 0.58, gkSkill: 0.88 }
+};
+
+let gameState = {
+    status: 'MENU', // MENU, SWIMOFF, PLAYING, GOAL_CELEBRATION, PAUSED, GAMEOVER
+    quarter: 1,
+    gameClock: config.quarterDuration,
+    shotClock: 30,
+    possession: null, // 'home', 'away', or null
+    stateTimer: 0,
+    shakeTime: 0,
+    shakeIntensity: 0,
+    homeTeam: { score: 0, shots: 0, steals: 0, saves: 0 },
+    awayTeam: { score: 0, shots: 0, steals: 0, saves: 0 }
+};
+
+// Input tracking
+const mouse = { x: WORLD_W / 2, y: WORLD_H / 2, down: false, chargeTime: 0, active: false };
+const touchInput = { dx: 0, dy: 0, sprint: false };
+
+// Entities
+let players = [];
+let controlledPlayer = null;
+let ripples = [];
+let splashes = [];
+let floatingTexts = [];
+let waveTime = 0;
+
+// --- BALL OBJECT ---
+const ball = {
+    x: HALF_POOL_X,
+    y: GOAL_CENTER_Y,
+    z: 0, // Height above water (0 = floating on water)
+    vx: 0,
+    vy: 0,
+    vz: 0,
+    radius: 11,
+    owner: null,
+    lastTouchTeam: null,
+    shotType: 'none', // 'none', 'pass', 'normal', 'skip', 'lob'
+    spinAngle: 0,
+    trail: [],
+
+    reset(x = HALF_POOL_X, y = GOAL_CENTER_Y) {
+        this.x = x;
+        this.y = y;
+        this.z = 0;
+        this.vx = 0;
+        this.vy = 0;
+        this.vz = 0;
+        this.owner = null;
+        this.shotType = 'none';
+        this.trail = [];
+    }
+};
+
+// --- VISUAL EFFECTS CLASSES ---
+class Ripple {
+    constructor(x, y, maxR = 32, alpha = 0.45) {
+        this.x = x;
+        this.y = y;
+        this.r = 4;
+        this.maxR = maxR;
+        this.alpha = alpha;
+    }
+    update(dt) {
+        this.r += 34 * dt;
+        this.alpha -= 0.48 * dt;
+    }
+    draw(ctx) {
+        if (this.alpha <= 0) return;
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(224, 242, 254, ${Math.max(0, this.alpha)})`;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.restore();
+    }
+}
+
+class SplashParticle {
+    constructor(x, y, vx, vy, size = 3.5) {
+        this.x = x;
+        this.y = y;
+        this.vx = vx;
+        this.vy = vy;
+        this.size = size;
+        this.life = 1.0;
+    }
+    update(dt) {
+        this.x += this.vx * dt;
+        this.y += this.vy * dt;
+        this.vx *= 0.92;
+        this.vy *= 0.92;
+        this.life -= 2.2 * dt;
+    }
+    draw(ctx) {
+        if (this.life <= 0) return;
+        ctx.fillStyle = `rgba(255, 255, 255, ${this.life * 0.85})`;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size * this.life, 0, Math.PI * 2);
+        ctx.fill();
+    }
+}
+
+class FloatingCallout {
+    constructor(x, y, text, color = '#ffffff') {
+        this.x = x;
+        this.y = y;
+        this.text = text;
+        this.color = color;
+        this.life = 1.2;
+    }
+    update(dt) {
+        this.y -= 32 * dt;
+        this.life -= dt;
+    }
+    draw(ctx) {
+        if (this.life <= 0) return;
+        ctx.save();
+        ctx.globalAlpha = Math.min(1, this.life * 1.4);
+        ctx.font = '700 15px "Chakra Petch", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#0f172a';
+        ctx.fillText(this.text, this.x + 1, this.y + 1);
+        ctx.fillStyle = this.color;
+        ctx.fillText(this.text, this.x, this.y);
+        ctx.restore();
+    }
+}
+
+// --- SWIMMER / PLAYER CLASS ---
+class Swimmer {
+    constructor(id, number, team, role, homeSlot) {
+        this.id = id;
+        this.number = number;
+        this.team = team; // 'home' or 'away'
+        this.role = role; // 'GK', 'CENTER', 'DRIVER', 'WING'
+        this.homeSlot = homeSlot; // { rx, ry } normalized tactical position
+
+        this.x = HALF_POOL_X;
+        this.y = GOAL_CENTER_Y;
+        this.vx = 0;
+        this.vy = 0;
+        this.angle = team === 'home' ? 0 : Math.PI;
+        this.radius = 17;
+
+        this.baseSpeed = role === 'GK' ? 92 : 104;
+        this.stamina = 100;
+        this.hasBall = false;
+        this.pickupCooldown = 0;
+        this.stealCooldown = 0;
+        this.stunTimer = 0;
+        this.strokePhase = Math.random() * Math.PI * 2;
+        this.aiDecisionTimer = Math.random() * 0.6;
+        this.diveTimer = 0;
+        this.diveVy = 0;
+    }
+
+    getCapColor() {
+        if (this.role === 'GK') return '#ef4444'; // Official Red Goalie Cap
+        return this.team === 'home' ? config.homeColor : config.awayColor;
+    }
+
+    getNumberColor() {
+        if (this.role === 'GK') return '#ffffff';
+        return this.team === 'home' ? config.homeText : config.awayText;
+    }
+
+    update(dt) {
+        if (this.pickupCooldown > 0) this.pickupCooldown -= dt;
+        if (this.stealCooldown > 0) this.stealCooldown -= dt;
+        if (this.stunTimer > 0) this.stunTimer -= dt;
+
+        // Goalkeeper Dive Physics
+        if (this.role === 'GK' && this.diveTimer > 0) {
+            this.diveTimer -= dt;
+            this.y += this.diveVy * dt;
+            this.y = Math.max(GOAL_TOP + 12, Math.min(GOAL_BOTTOM - 12, this.y));
+            this.strokePhase += 12 * dt;
+            return;
+        }
+
+        let moveX = 0;
+        let moveY = 0;
+        let isSprinting = false;
+
+        // Player-controlled swimmer vs AI swimmer
+        if (this === controlledPlayer && gameState.status === 'PLAYING' && this.stunTimer <= 0) {
+            moveX = touchInput.dx;
+            moveY = touchInput.dy;
+
+            const mag = Math.hypot(moveX, moveY);
+            if (mag > 1) {
+                moveX /= mag;
+                moveY /= mag;
+            }
+
+            isSprinting = touchInput.sprint && this.stamina > 8 && mag > 0.1;
+        } else if (this.stunTimer <= 0) {
+            const ai = this.computeAI(dt);
+            moveX = ai.mx;
+            moveY = ai.my;
+            isSprinting = ai.sprint && this.stamina > 15;
+        }
+
+        // Stamina management
+        if (isSprinting) {
+            this.stamina = Math.max(0, this.stamina - 22 * dt);
+        } else {
+            this.stamina = Math.min(100, this.stamina + 14 * dt);
+        }
+
+        // Calculate target velocity (Dribbling with ball slightly slows sprint)
+        const diffMod = this.team === 'away' ? DIFFICULTY_SETTINGS[config.difficulty].aiSpeed : 1.0;
+        let maxSpd = this.baseSpeed * diffMod;
+        if (isSprinting) maxSpd *= 1.32;
+        if (this.hasBall) maxSpd *= 0.88;
+        if (this.stunTimer > 0) maxSpd *= 0.25;
+
+        const targetVx = moveX * maxSpd;
+        const targetVy = moveY * maxSpd;
+
+        // Smooth aquatic acceleration & water drag
+        const accel = 4.6;
+        this.vx += (targetVx - this.vx) * Math.min(1, accel * dt);
+        this.vy += (targetVy - this.vy) * Math.min(1, accel * dt);
+
+        this.x += this.vx * dt;
+        this.y += this.vy * dt;
+
+        // Facing angle & stroke animation
+        const speed = Math.hypot(this.vx, this.vy);
+        if (speed > 22) {
+            const targetAngle = Math.atan2(this.vy, this.vx);
+            let diff = targetAngle - this.angle;
+            while (diff > Math.PI) diff -= Math.PI * 2;
+            while (diff < -Math.PI) diff += Math.PI * 2;
+            this.angle += diff * Math.min(1, 8 * dt);
+            this.strokePhase += (speed * 0.065) * dt;
+
+            // Wake ripples & splash particles
+            if (Math.random() < (isSprinting ? 0.35 : 0.14)) {
+                ripples.push(new Ripple(this.x - Math.cos(this.angle) * 14, this.y - Math.sin(this.angle) * 14, isSprinting ? 32 : 20, 0.3));
+            }
+            if (isSprinting && Math.random() < 0.32) {
+                splashes.push(new SplashParticle(
+                    this.x - Math.cos(this.angle) * 15,
+                    this.y - Math.sin(this.angle) * 15,
+                    -this.vx * 0.3 + (Math.random() - 0.5) * 40,
+                    -this.vy * 0.3 + (Math.random() - 0.5) * 40,
+                    2.8
+                ));
+            }
+        } else {
+            // Eggbeater treading water: face the ball or opponent's goal
+            let lookX = ball.x;
+            let lookY = ball.y;
+            if (this.hasBall) {
+                if (this === controlledPlayer) {
+                    lookX = mouse.x;
+                    lookY = mouse.y;
+                } else {
+                    lookX = this.team === 'home' ? POOL_RIGHT : POOL_LEFT;
+                    lookY = GOAL_CENTER_Y;
+                }
+            }
+            const targetAngle = Math.atan2(lookY - this.y, lookX - this.x);
+            let diff = targetAngle - this.angle;
+            while (diff > Math.PI) diff -= Math.PI * 2;
+            while (diff < -Math.PI) diff += Math.PI * 2;
+            this.angle += diff * Math.min(1, 6 * dt);
+            this.strokePhase += 3.5 * dt;
+        }
+
+        // Keep swimmers inside pool boundaries
+        if (this.role === 'GK') {
+            const gkX = this.team === 'home' ? POOL_LEFT + 22 : POOL_RIGHT - 22;
+            this.x += (gkX - this.x) * Math.min(1, 8 * dt);
+            this.y = Math.max(GOAL_TOP + 12, Math.min(GOAL_BOTTOM - 12, this.y));
+        } else {
+            this.x = Math.max(POOL_LEFT + this.radius, Math.min(POOL_RIGHT - this.radius, this.x));
+            this.y = Math.max(POOL_TOP + this.radius, Math.min(POOL_BOTTOM - this.radius, this.y));
+        }
+
+        // Carry the ball slightly ahead of the swimmer
+        if (this.hasBall) {
+            ball.x = this.x + Math.cos(this.angle) * (this.radius + 9);
+            ball.y = this.y + Math.sin(this.angle) * (this.radius + 9);
+            ball.z = 0;
+            ball.vx = this.vx;
+            ball.vy = this.vy;
+        }
+    }
+
+    computeAI(dt) {
+        const diff = DIFFICULTY_SETTINGS[config.difficulty];
+        this.aiDecisionTimer -= dt;
+
+        // 1. SWIM-OFF SPRINT
+        if (gameState.status === 'SWIMOFF') {
+            if (this.role === 'GK') return { mx: 0, my: 0, sprint: false };
+            const dx = HALF_POOL_X - this.x;
+            const dy = GOAL_CENTER_Y - this.y;
+            const dist = Math.hypot(dx, dy);
+            return dist > 10 ? { mx: dx / dist, my: dy / dist, sprint: this.role === 'DRIVER' } : { mx: 0, my: 0, sprint: false };
+        }
+
+        // 2. GOALKEEPER AI
+        if (this.role === 'GK') {
+            const goalX = this.team === 'home' ? POOL_LEFT + 20 : POOL_RIGHT - 20;
+            // Track ball vertically within goal frame
+            let targetY = Math.max(GOAL_TOP + 16, Math.min(GOAL_BOTTOM - 16, ball.y));
+
+            // Predict incoming shot trajectory
+            const incoming = (this.team === 'home' && ball.vx < -140) || (this.team === 'away' && ball.vx > 140);
+            if (incoming && !ball.owner) {
+                const timeToGoal = Math.abs((goalX - ball.x) / ball.vx);
+                if (timeToGoal < 0.75) {
+                    const predictedY = ball.y + ball.vy * timeToGoal;
+                    const error = (1 - diff.gkSkill) * (Math.sin(this.id * 7 + waveTime * 3) * 55);
+                    targetY = Math.max(GOAL_TOP + 14, Math.min(GOAL_BOTTOM - 14, predictedY + error));
+
+                    // Trigger dramatic goalkeeper lunge!
+                    if (timeToGoal < 0.34 && this.diveTimer <= 0 && Math.abs(targetY - this.y) > 22) {
+                        this.diveTimer = 0.32;
+                        this.diveVy = Math.sign(targetY - this.y) * (175 * diff.gkSkill);
+                        sfx.playSplash(0.5);
+                    }
+                }
+            }
+
+            // If GK has the ball, pass outlet to open teammate
+            if (this.hasBall && this.aiDecisionTimer <= 0) {
+                this.aiDecisionTimer = 0.7;
+                const target = findBestPassTarget(this);
+                if (target) executePass(this, target);
+            }
+
+            const dy = targetY - this.y;
+            return { mx: 0, my: Math.abs(dy) > 4 ? Math.sign(dy) : 0, sprint: false };
+        }
+
+        // 3. LOOSE BALL PURSUIT
+        if (!ball.owner && ball.z < 18) {
+            const nearest = getNearestPlayerTo(ball.x, ball.y, this.team, true);
+            if (nearest === this) {
+                const dx = ball.x - this.x;
+                const dy = ball.y - this.y;
+                const dist = Math.hypot(dx, dy);
+                return dist > 4 ? { mx: dx / dist, my: dy / dist, sprint: dist > 110 } : { mx: 0, my: 0, sprint: false };
+            }
+        }
+
+        // 4. BALL CARRIER AI (Away team, or Home teammates if needed)
+        if (this.hasBall) {
+            const oppGoalX = this.team === 'home' ? POOL_RIGHT : POOL_LEFT;
+            const distToGoal = Math.hypot(oppGoalX - this.x, GOAL_CENTER_Y - this.y);
+
+            if (this.aiDecisionTimer <= 0) {
+                this.aiDecisionTimer = diff.reactionTime;
+
+                // Shoot if within range or shot clock is low
+                const inRange = distToGoal < 350;
+                const urgent = gameState.shotClock < 5.5 && distToGoal < 500;
+                if (inRange || urgent) {
+                    const aimY = GOAL_TOP + 22 + Math.random() * (GOAL_WIDTH - 44);
+                    const spread = (1 - diff.shotAccuracy) * 65 * (Math.random() - 0.5);
+                    const roll = Math.random();
+                    const type = roll < 0.25 ? 'skip' : (roll < 0.4 ? 'lob' : 'normal');
+                    executeShot(this, oppGoalX, aimY + spread, type, 0.75 + Math.random() * 0.25);
+                    return { mx: 0, my: 0, sprint: false };
+                }
+
+                // Otherwise look for an open forward pass
+                const passTarget = findBestPassTarget(this);
+                if (passTarget && (Math.random() < 0.65 || distToGoal > 430)) {
+                    executePass(this, passTarget);
+                    return { mx: 0, my: 0, sprint: false };
+                }
+            }
+
+            // Advance toward opponent's 6m perimeter
+            const targetX = this.team === 'home' ? LINE_6M_RIGHT - 35 : LINE_6M_LEFT + 35;
+            const targetY = GOAL_CENTER_Y + this.homeSlot.ry * 160;
+            const dx = targetX - this.x;
+            const dy = targetY - this.y;
+            const d = Math.hypot(dx, dy);
+            return d > 15 ? { mx: dx / d, my: dy / d, sprint: false } : { mx: 0, my: 0, sprint: false };
+        }
+
+        // 5. OFF-BALL OFFENSE OR DEFENSE POSITIONING
+        const attacking = gameState.possession === this.team;
+        let tx, ty;
+
+        if (attacking) {
+            // Set up Water Polo Umbrella / Arc Formation in opponent's half
+            const dir = this.team === 'home' ? 1 : -1;
+            const baseArcX = this.team === 'home' ? POOL_RIGHT : POOL_LEFT;
+            tx = baseArcX - dir * (this.homeSlot.rx * 340);
+            ty = GOAL_CENTER_Y + this.homeSlot.ry * (POOL_H * 0.40) + Math.sin(waveTime * 1.4 + this.id) * 18;
+        } else {
+            // Defensive Zone / Man-to-Man Press
+            const ballHolder = ball.owner;
+            const nearestDef = ballHolder ? getNearestPlayerTo(ballHolder.x, ballHolder.y, this.team, true) : null;
+
+            if (nearestDef === this && ballHolder) {
+                // Press the ball carrier and attempt steal!
+                tx = ballHolder.x;
+                ty = ballHolder.y;
+                const distToCarrier = Math.hypot(tx - this.x, ty - this.y);
+                if (distToCarrier < 34 && this.stealCooldown <= 0) {
+                    attemptSteal(this);
+                }
+            } else {
+                // Drop back to defensive lanes between opponent and own goal
+                const ownGoalX = this.team === 'home' ? POOL_LEFT : POOL_RIGHT;
+                const dir = this.team === 'home' ? 1 : -1;
+                tx = ownGoalX + dir * (95 + this.homeSlot.rx * 220);
+                ty = GOAL_CENTER_Y + this.homeSlot.ry * (POOL_H * 0.36);
+            }
+        }
+
+        const dx = tx - this.x;
+        const dy = ty - this.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist > 14) {
+            return { mx: dx / dist, my: dy / dist, sprint: dist > 230 && attacking };
+        }
+        return { mx: 0, my: 0, sprint: false };
+    }
+
+    draw(ctx) {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+
+        // Selection ring under human-controlled player
+        if (this === controlledPlayer && gameState.status === 'PLAYING') {
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(0, 0, this.radius + 9 + Math.sin(waveTime * 6) * 2, 0, Math.PI * 2);
+            ctx.strokeStyle = '#38bdf8';
+            ctx.lineWidth = 2.5;
+            ctx.setLineDash([6, 4]);
+            ctx.stroke();
+            ctx.restore();
+
+            // Stamina mini-arc
+            if (this.stamina < 98) {
+                ctx.beginPath();
+                ctx.arc(0, 0, this.radius + 14, -Math.PI / 2, -Math.PI / 2 + (Math.PI * 2) * (this.stamina / 100));
+                ctx.strokeStyle = this.stamina > 30 ? '#34d399' : '#f43f5e';
+                ctx.lineWidth = 2.5;
+                ctx.stroke();
+            }
+        }
+
+        ctx.rotate(this.angle);
+
+        const speed = Math.hypot(this.vx, this.vy);
+        const isSwimming = speed > 28;
+
+        // Underwater Body / Shoulders Silhouette
+        ctx.fillStyle = 'rgba(14, 116, 144, 0.35)';
+        ctx.beginPath();
+        ctx.ellipse(-4, 0, isSwimming ? 24 : 16, 13, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Animated Freestyle Arms & Kicking Legs
+        const armSwing = Math.sin(this.strokePhase) * (isSwimming ? 14 : 6);
+        const oppSwing = Math.sin(this.strokePhase + Math.PI) * (isSwimming ? 14 : 6);
+
+        ctx.strokeStyle = '#fed7aa'; // Skin tone arms
+        ctx.lineWidth = 5;
+        ctx.lineCap = 'round';
+
+        // Left & Right Arms
+        ctx.beginPath();
+        ctx.moveTo(2, -10);
+        ctx.lineTo(4 + armSwing, -16);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(2, 10);
+        ctx.lineTo(4 + oppSwing, 16);
+        ctx.stroke();
+
+        // Shoulders
+        ctx.fillStyle = '#fdba74';
+        ctx.beginPath();
+        ctx.ellipse(0, 0, 10, 14, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Water Polo Cap (with ear guards!)
+        const capColor = this.getCapColor();
+        ctx.fillStyle = capColor;
+        ctx.strokeStyle = '#0f172a';
+        ctx.lineWidth = 1.8;
+
+        // Ear guards
+        ctx.beginPath();
+        ctx.arc(2, -11, 3.8, 0, Math.PI * 2);
+        ctx.arc(2, 11, 3.8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        // Main Cap Dome
+        ctx.beginPath();
+        ctx.arc(2, 0, 10.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        // Cap Number (upright text so it's always readable)
+        ctx.rotate(-this.angle);
+        ctx.fillStyle = this.getNumberColor();
+        ctx.font = '800 11px "Inter", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(this.number, Math.cos(this.angle) * 2, Math.sin(this.angle) * 2 + 0.5);
+
+        ctx.restore();
+    }
+}
+
+// --- TEAM & FORMATION SETUP ---
+function setupTeams(isSwimOff = true) {
+    players = [];
+    const fieldCount = config.teamSize - 1; // 4 field players in 5v5, 3 in 4v4
+
+    const formations = fieldCount === 4
+        ? [
+            { role: 'CENTER', rx: 0.24, ry: 0.0 },   // 2-meter Hole Set
+            { role: 'DRIVER', rx: 0.62, ry: 0.0 },   // Point / Top Shooter
+            { role: 'WING',   rx: 0.44, ry: -0.78 }, // Left Wing
+            { role: 'WING',   rx: 0.44, ry: 0.78 }   // Right Wing
+          ]
+        : [
+            { role: 'CENTER', rx: 0.26, ry: 0.0 },
+            { role: 'WING',   rx: 0.52, ry: -0.68 },
+            { role: 'WING',   rx: 0.52, ry: 0.68 }
+          ];
+
+    // Create Home Team (Left)
+    const homeGK = new Swimmer(1, '1', 'home', 'GK', { rx: 0, ry: 0 });
+    homeGK.x = POOL_LEFT + 22;
+    homeGK.y = GOAL_CENTER_Y;
+    players.push(homeGK);
+
+    formations.forEach((slot, idx) => {
+        const p = new Swimmer(idx + 2, String(idx + 2), 'home', slot.role, slot);
+        if (isSwimOff) {
+            p.x = POOL_LEFT + 28;
+            p.y = POOL_TOP + ((idx + 1) / (formations.length + 1)) * POOL_H;
+        } else {
+            p.x = HALF_POOL_X - 90 - slot.rx * 180;
+            p.y = GOAL_CENTER_Y + slot.ry * (POOL_H * 0.36);
+        }
+        players.push(p);
+    });
+
+    // Create Away Team (Right)
+    const awayGK = new Swimmer(11, '1', 'away', 'GK', { rx: 0, ry: 0 });
+    awayGK.x = POOL_RIGHT - 22;
+    awayGK.y = GOAL_CENTER_Y;
+    players.push(awayGK);
+
+    formations.forEach((slot, idx) => {
+        const p = new Swimmer(idx + 12, String(idx + 2), 'away', slot.role, slot);
+        if (isSwimOff) {
+            p.x = POOL_RIGHT - 28;
+            p.y = POOL_TOP + ((idx + 1) / (formations.length + 1)) * POOL_H;
+        } else {
+            p.x = HALF_POOL_X + 90 + slot.rx * 180;
+            p.y = GOAL_CENTER_Y + slot.ry * (POOL_H * 0.36);
+        }
+        players.push(p);
+    });
+
+    // Assign human control to top driver/wing
+    controlledPlayer = players.find(p => p.team === 'home' && p.role !== 'GK');
+    ball.reset(HALF_POOL_X, GOAL_CENTER_Y);
+    gameState.possession = null;
+    gameState.shotClock = 30;
+    gameState.status = isSwimOff ? 'SWIMOFF' : 'PLAYING';
+}
+
+// --- BALL ACTIONS: PASS, SHOT, SKIP SHOT, LOB, STEAL ---
+function giveBallTo(player) {
+    players.forEach(p => p.hasBall = false);
+    player.hasBall = true;
+    ball.owner = player;
+    ball.z = 0;
+    ball.vx = 0;
+    ball.vy = 0;
+    ball.vz = 0;
+    ball.shotType = 'none';
+
+    if (gameState.possession !== player.team) {
+        gameState.possession = player.team;
+        gameState.shotClock = 30;
+    }
+    ball.lastTouchTeam = player.team;
+
+    if (player.team === 'home' && player.role !== 'GK') {
+        controlledPlayer = player;
+    }
+}
+
+function findBestPassTarget(passer) {
+    const teammates = players.filter(p => p.team === passer.team && p !== passer && p.role !== 'GK');
+    let best = null;
+    let bestScore = -999;
+
+    const dir = passer.team === 'home' ? 1 : -1;
+
+    for (const mate of teammates) {
+        const dist = Math.hypot(mate.x - passer.x, mate.y - passer.y);
+        if (dist < 60 || dist > 560) continue;
+
+        // Check if an opponent is tightly blocking the passing lane
+        let laneBlocked = false;
+        for (const opp of players) {
+            if (opp.team === passer.team) continue;
+            const dOpp = pointToSegmentDist(opp.x, opp.y, passer.x, passer.y, mate.x, mate.y);
+            if (dOpp < 24) {
+                laneBlocked = true;
+                break;
+            }
+        }
+
+        const forwardGain = (mate.x - passer.x) * dir;
+        const score = forwardGain * 0.8 - (laneBlocked ? 300 : 0) - Math.abs(dist - 240) * 0.2;
+        if (score > bestScore) {
+            bestScore = score;
+            best = mate;
+        }
+    }
+    return best;
+}
+
+function executePass(passer, target) {
+    passer.hasBall = false;
+    passer.pickupCooldown = 0.35;
+    ball.owner = null;
+    ball.shotType = 'pass';
+
+    // Lead the pass slightly ahead of moving teammate
+    const leadX = target.x + target.vx * 0.22;
+    const leadY = target.y + target.vy * 0.22;
+    const dx = leadX - ball.x;
+    const dy = leadY - ball.y;
+    const dist = Math.max(1, Math.hypot(dx, dy));
+
+    const passSpeed = Math.min(480, Math.max(290, dist * 1.35));
+    ball.vx = (dx / dist) * passSpeed;
+    ball.vy = (dy / dist) * passSpeed;
+    ball.vz = 32; // Crisp dry pass above the water!
+
+    sfx.playThrow(false);
+    ripples.push(new Ripple(passer.x, passer.y, 28, 0.5));
+}
+
+function executeShot(shooter, targetX, targetY, type = 'normal', power = 0.8) {
+    shooter.hasBall = false;
+    shooter.pickupCooldown = 0.5;
+    ball.owner = null;
+    ball.shotType = type;
+
+    if (shooter.team === 'home') gameState.homeTeam.shots++;
+    else gameState.awayTeam.shots++;
+
+    const dx = targetX - ball.x;
+    const dy = targetY - ball.y;
+    const dist = Math.max(1, Math.hypot(dx, dy));
+
+    if (type === 'lob') {
+        // High-arc lob shot over goalkeeper's outstretched arms
+        const speed = Math.min(340, Math.max(230, dist * 0.72));
+        ball.vx = (dx / dist) * speed;
+        ball.vy = (dy / dist) * speed;
+        ball.vz = 155; // High arc!
+        floatingTexts.push(new FloatingCallout(shooter.x, shooter.y - 24, 'LOB SHOT!', '#fbbf24'));
+    } else if (type === 'skip') {
+        // Water-skipping rocket shot!
+        const speed = 510 + power * 130;
+        ball.vx = (dx / dist) * speed;
+        ball.vy = (dy / dist) * speed;
+        ball.vz = -48; // Slams downward onto the water surface to skip!
+        ball.z = 14;
+        floatingTexts.push(new FloatingCallout(shooter.x, shooter.y - 24, 'SKIP SHOT!', '#38bdf8'));
+        triggerShake(4, 0.14);
+    } else {
+        // Standard Power Shot
+        const speed = 410 + power * 150;
+        ball.vx = (dx / dist) * speed;
+        ball.vy = (dy / dist) * speed;
+        ball.vz = 18;
+    }
+
+    sfx.playThrow(true);
+    for (let i = 0; i < 6; i++) {
+        splashes.push(new SplashParticle(ball.x, ball.y, (Math.random() - 0.5) * 90, (Math.random() - 0.5) * 90, 3.2));
+    }
+}
+
+function attemptSteal(defender) {
+    if (defender.stealCooldown > 0) return;
+    defender.stealCooldown = 0.85;
+
+    // Small lunge forward
+    defender.vx += Math.cos(defender.angle) * 95;
+    defender.vy += Math.sin(defender.angle) * 95;
+    sfx.playSplash(0.4);
+
+    if (!ball.owner || ball.owner.team === defender.team) return;
+
+    const carrier = ball.owner;
+    const dist = Math.hypot(carrier.x - defender.x, carrier.y - defender.y);
+    if (dist < 42) {
+        const diff = DIFFICULTY_SETTINGS[config.difficulty];
+        const successChance = defender.team === 'home' ? 0.65 : diff.stealChance;
+
+        if (Math.random() < successChance) {
+            // Clean Steal!
+            carrier.hasBall = false;
+            carrier.stunTimer = 0.55;
+            giveBallTo(defender);
+            if (defender.team === 'home') gameState.homeTeam.steals++;
+            else gameState.awayTeam.steals++;
+
+            sfx.playSplash(0.75);
+            floatingTexts.push(new FloatingCallout(defender.x, defender.y - 24, 'STEAL!', '#34d399'));
+            triggerShake(4, 0.12);
+        } else {
+            floatingTexts.push(new FloatingCallout(defender.x, defender.y - 20, 'MISS', '#94a3b8'));
+        }
+    }
+}
+
+// --- BALL PHYSICS & GOAL DETECTION ---
+function updateBall(dt) {
+    if (ball.owner) {
+        ball.trail.push({ x: ball.x, y: ball.y, z: ball.z });
+        if (ball.trail.length > 8) ball.trail.shift();
+        return;
+    }
+
+    ball.x += ball.vx * dt;
+    ball.y += ball.vy * dt;
+    ball.z += ball.vz * dt;
+    ball.spinAngle += Math.hypot(ball.vx, ball.vy) * 0.03 * dt;
+
+    // Gravity & Water Surface Bounce (Skip Shot Magic!)
+    if (ball.z > 0 || ball.vz !== 0) {
+        ball.vz -= 290 * dt; // Gravity
+        if (ball.z <= 0) {
+            ball.z = 0;
+            if (ball.shotType === 'skip' && Math.abs(ball.vz) > 20) {
+                // Skip off the water with speed burst and splash!
+                ball.vz = 75;
+                ball.vx *= 1.06;
+                ball.vy *= 1.06;
+                ball.shotType = 'normal';
+                sfx.playSplash(0.8);
+                ripples.push(new Ripple(ball.x, ball.y, 44, 0.8));
+                for (let i = 0; i < 10; i++) {
+                    splashes.push(new SplashParticle(ball.x, ball.y, (Math.random() - 0.5) * 140, (Math.random() - 0.5) * 140, 4));
+                }
+            } else {
+                ball.vz = 0;
+                sfx.playSplash(0.35);
+                ripples.push(new Ripple(ball.x, ball.y, 26, 0.5));
+            }
+        }
+    }
+
+    // Water friction when floating on surface
+    if (ball.z <= 0) {
+        const drag = Math.pow(0.24, dt);
+        ball.vx *= drag;
+        ball.vy *= drag;
+        if (Math.hypot(ball.vx, ball.vy) < 12) {
+            ball.vx = 0;
+            ball.vy = 0;
+            ball.shotType = 'none';
+        }
+    }
+
+    ball.trail.push({ x: ball.x, y: ball.y, z: ball.z });
+    if (ball.trail.length > 12) ball.trail.shift();
+
+    // Check Goalpost Collisions (Top & Bottom Posts of Left and Right Goals)
+    const posts = [
+        { x: POOL_LEFT, y: GOAL_TOP },
+        { x: POOL_LEFT, y: GOAL_BOTTOM },
+        { x: POOL_RIGHT, y: GOAL_TOP },
+        { x: POOL_RIGHT, y: GOAL_BOTTOM }
+    ];
+    for (const post of posts) {
+        const dx = ball.x - post.x;
+        const dy = ball.y - post.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist < ball.radius + 7) {
+            const nx = dx / dist;
+            const ny = dy / dist;
+            const dot = ball.vx * nx + ball.vy * ny;
+            ball.vx = (ball.vx - 2 * dot * nx) * 0.65;
+            ball.vy = (ball.vy - 2 * dot * ny) * 0.65;
+            ball.x = post.x + nx * (ball.radius + 8);
+            ball.y = post.y + ny * (ball.radius + 8);
+            sfx.playPostClank();
+            floatingTexts.push(new FloatingCallout(post.x, post.y - 16, 'POST!', '#f87171'));
+            triggerShake(6, 0.18);
+        }
+    }
+
+    // Check Goal Scoring!
+    if (ball.y > GOAL_TOP + 6 && ball.y < GOAL_BOTTOM - 6 && ball.z < 36) {
+        if (ball.x < POOL_LEFT - 6) {
+            handleGoalScored('away');
+            return;
+        } else if (ball.x > POOL_RIGHT + 6) {
+            handleGoalScored('home');
+            return;
+        }
+    }
+
+    // Out-of-bounds Pool Walls (Turnover / Corner Throw)
+    if (ball.y < POOL_TOP + ball.radius) {
+        ball.y = POOL_TOP + ball.radius;
+        ball.vy = Math.abs(ball.vy) * 0.5;
+    } else if (ball.y > POOL_BOTTOM - ball.radius) {
+        ball.y = POOL_BOTTOM - ball.radius;
+        ball.vy = -Math.abs(ball.vy) * 0.5;
+    }
+
+    if (ball.x < POOL_LEFT) {
+        // Saved or missed wide left -> Home GK gets ball
+        const homeGK = players.find(p => p.team === 'home' && p.role === 'GK');
+        ball.reset(homeGK.x + 20, homeGK.y);
+        giveBallTo(homeGK);
+        sfx.playWhistle(0.25, false);
+    } else if (ball.x > POOL_RIGHT) {
+        // Saved or missed wide right -> Away GK gets ball
+        const awayGK = players.find(p => p.team === 'away' && p.role === 'GK');
+        ball.reset(awayGK.x - 20, awayGK.y);
+        giveBallTo(awayGK);
+        sfx.playWhistle(0.25, false);
+    }
+
+    // Swimmer Interception / Pickup / Goalkeeper Save
+    for (const p of players) {
+        if (p.pickupCooldown > 0 || p.stunTimer > 0) continue;
+
+        // High lob passes/shots fly over field players unless near destination
+        const maxCatchZ = p.role === 'GK' ? 28 : 20;
+        if (ball.z > maxCatchZ) continue;
+
+        const dist = Math.hypot(p.x - ball.x, p.y - ball.y);
+        if (dist < p.radius + ball.radius + 4) {
+            const isShot = ball.shotType === 'normal' || ball.shotType === 'skip' || ball.shotType === 'lob';
+
+            if (isShot && p.role === 'GK' && p.team !== ball.lastTouchTeam) {
+                // EPIC GOALKEEPER SAVE!
+                if (p.team === 'home') gameState.homeTeam.saves++;
+                else gameState.awayTeam.saves++;
+                sfx.playSplash(0.9);
+                floatingTexts.push(new FloatingCallout(p.x, p.y - 26, 'GREAT SAVE!', '#38bdf8'));
+                triggerShake(5, 0.15);
+            } else if (isShot && p.team !== ball.lastTouchTeam) {
+                // Field Block!
+                if (p.team === 'home') gameState.homeTeam.steals++;
+                else gameState.awayTeam.steals++;
+                floatingTexts.push(new FloatingCallout(p.x, p.y - 24, 'BLOCKED!', '#a78bfa'));
+            }
+
+            giveBallTo(p);
+            if (gameState.status === 'SWIMOFF') {
+                gameState.status = 'PLAYING';
+                showBanner('POSSESSION!', `${p.team === 'home' ? config.homeName : config.awayName} WIN SWIM-OFF`, 'from-emerald-600 to-teal-500');
+            }
+            break;
+        }
+    }
+}
+
+function handleGoalScored(scoringTeam) {
+    if (gameState.status === 'GOAL_CELEBRATION') return;
+
+    gameState.status = 'GOAL_CELEBRATION';
+    gameState.stateTimer = 2.4;
+
+    if (scoringTeam === 'home') {
+        gameState.homeTeam.score++;
+        showBanner('GOAL!', `${config.homeName} SCORE!`, 'from-sky-600 via-blue-500 to-cyan-500');
+    } else {
+        gameState.awayTeam.score++;
+        showBanner('AWAY GOAL!', `${config.awayName} SCORE!`, 'from-rose-600 via-red-500 to-orange-500');
+    }
+
+    sfx.playGoalHorn();
+    setTimeout(() => sfx.playWhistle(0.45, false), 550);
+    triggerShake(10, 0.35);
+
+    // Burst of celebration splashes
+    for (let i = 0; i < 28; i++) {
+        splashes.push(new SplashParticle(ball.x, ball.y, (Math.random() - 0.5) * 260, (Math.random() - 0.5) * 260, 5));
+    }
+
+    updateHUD();
+}
+
+// --- POOL & GRAPHICS RENDERING ---
+function drawPool() {
+    // 1. Concrete Pool Deck Surround
+    const deckGrad = ctx.createLinearGradient(0, 0, 0, WORLD_H);
+    deckGrad.addColorStop(0, '#1e293b');
+    deckGrad.addColorStop(1, '#0f172a');
+    ctx.fillStyle = deckGrad;
+    ctx.fillRect(0, 0, WORLD_W, WORLD_H);
+
+    // Subtle deck tile grid
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
+    ctx.lineWidth = 1;
+    for (let x = 0; x < WORLD_W; x += 40) {
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, WORLD_H); ctx.stroke();
+    }
+    for (let y = 0; y < WORLD_H; y += 40) {
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(WORLD_W, y); ctx.stroke();
+    }
+
+    // 2. Pool Water Basin Base Gradient
+    const waterGrad = ctx.createRadialGradient(HALF_POOL_X, GOAL_CENTER_Y, 60, HALF_POOL_X, GOAL_CENTER_Y, POOL_W * 0.65);
+    waterGrad.addColorStop(0, '#0ea5e9');
+    waterGrad.addColorStop(0.65, '#0284c7');
+    waterGrad.addColorStop(1, '#0369a1');
+    ctx.fillStyle = waterGrad;
+    ctx.fillRect(POOL_LEFT, POOL_TOP, POOL_W, POOL_H);
+
+    // 3. Animated Underwater Caustic Light Shimmer
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(POOL_LEFT, POOL_TOP, POOL_W, POOL_H);
+    ctx.clip();
+
+    ctx.strokeStyle = 'rgba(186, 230, 253, 0.14)';
+    ctx.lineWidth = 2.5;
+    for (let i = 0; i < 14; i++) {
+        const yBase = POOL_TOP + (i / 13) * POOL_H;
+        ctx.beginPath();
+        for (let x = POOL_LEFT; x <= POOL_RIGHT; x += 35) {
+            const offset = Math.sin(x * 0.015 + waveTime * 2.1 + i) * 9 + Math.cos(x * 0.025 - waveTime * 1.6) * 5;
+            if (x === POOL_LEFT) ctx.moveTo(x, yBase + offset);
+            else ctx.lineTo(x, yBase + offset);
+        }
+        ctx.stroke();
+    }
+
+    // Underwater Swimming Lane T-Marks (Olympic Pool Detail)
+    ctx.fillStyle = 'rgba(7, 89, 133, 0.35)';
+    for (let lane = 1; lane <= 4; lane++) {
+        const ly = POOL_TOP + (lane / 5) * POOL_H;
+        ctx.fillRect(POOL_LEFT + 65, ly - 3, POOL_W - 130, 6);
+        ctx.fillRect(POOL_LEFT + 65, ly - 16, 6, 32);
+        ctx.fillRect(POOL_RIGHT - 71, ly - 16, 6, 32);
+    }
+    ctx.restore();
+
+    // 4. Water Polo Field Markings (2m Red, 6m Yellow, Half-Pool White)
+    ctx.save();
+    ctx.setLineDash([10, 8]);
+    ctx.lineWidth = 2.5;
+
+    // 2-Meter Lines (Red)
+    ctx.strokeStyle = 'rgba(244, 63, 94, 0.65)';
+    ctx.beginPath();
+    ctx.moveTo(LINE_2M_LEFT, POOL_TOP); ctx.lineTo(LINE_2M_LEFT, POOL_BOTTOM);
+    ctx.moveTo(LINE_2M_RIGHT, POOL_TOP); ctx.lineTo(LINE_2M_RIGHT, POOL_BOTTOM);
+    ctx.stroke();
+
+    // 6-Meter Lines (Yellow)
+    ctx.strokeStyle = 'rgba(250, 204, 21, 0.65)';
+    ctx.beginPath();
+    ctx.moveTo(LINE_6M_LEFT, POOL_TOP); ctx.lineTo(LINE_6M_LEFT, POOL_BOTTOM);
+    ctx.moveTo(LINE_6M_RIGHT, POOL_TOP); ctx.lineTo(LINE_6M_RIGHT, POOL_BOTTOM);
+    ctx.stroke();
+
+    // Half-Pool Line (White)
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.55)';
+    ctx.beginPath();
+    ctx.moveTo(HALF_POOL_X, POOL_TOP); ctx.lineTo(HALF_POOL_X, POOL_BOTTOM);
+    ctx.stroke();
+    ctx.restore();
+
+    // 5. Floating Lane Ropes (Top & Bottom Boundaries with Red/Yellow/White Floats)
+    drawFloatingRope(POOL_LEFT, POOL_RIGHT, POOL_TOP);
+    drawFloatingRope(POOL_LEFT, POOL_RIGHT, POOL_BOTTOM);
+
+    // Pool End Walls
+    ctx.strokeStyle = '#cbd5e1';
+    ctx.lineWidth = 5;
+    ctx.beginPath();
+    ctx.moveTo(POOL_LEFT, POOL_TOP); ctx.lineTo(POOL_LEFT, POOL_BOTTOM);
+    ctx.moveTo(POOL_RIGHT, POOL_TOP); ctx.lineTo(POOL_RIGHT, POOL_BOTTOM);
+    ctx.stroke();
+
+    // 6. Left & Right Floating Goals with Nets
+    drawGoal(POOL_LEFT, true);
+    drawGoal(POOL_RIGHT, false);
+}
+
+function drawFloatingRope(x1, x2, y) {
+    ctx.strokeStyle = '#0f172a';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(x1, y);
+    ctx.lineTo(x2, y);
+    ctx.stroke();
+
+    const floatSpacing = 14;
+    for (let x = x1 + 7; x < x2; x += floatSpacing) {
+        let color = '#ffffff';
+        if (x < LINE_2M_LEFT || x > LINE_2M_RIGHT) color = '#ef4444'; // Red 2m zone
+        else if (x < LINE_6M_LEFT || x > LINE_6M_RIGHT) color = '#facc15'; // Yellow 6m zone
+
+        const bob = Math.sin(waveTime * 4 + x * 0.05) * 1.2;
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.roundRect(x - 5, y - 4.5 + bob, 10, 9, 3);
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(15, 23, 42, 0.5)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+    }
+}
+
+function drawGoal(x, isLeft) {
+    const dir = isLeft ? -1 : 1;
+    const backX = x + dir * GOAL_DEPTH;
+
+    // Goal Net Backing
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.45)';
+    ctx.fillRect(Math.min(x, backX), GOAL_TOP, GOAL_DEPTH, GOAL_WIDTH);
+
+    // Net Mesh Lines
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+    ctx.lineWidth = 1.2;
+    for (let ny = GOAL_TOP + 12; ny < GOAL_BOTTOM; ny += 12) {
+        ctx.beginPath();
+        ctx.moveTo(x, ny);
+        ctx.lineTo(backX, ny);
+        ctx.stroke();
+    }
+    for (let nx = Math.min(x, backX) + 10; nx < Math.max(x, backX); nx += 10) {
+        ctx.beginPath();
+        ctx.moveTo(nx, GOAL_TOP);
+        ctx.lineTo(nx, GOAL_BOTTOM);
+        ctx.stroke();
+    }
+
+    // White Goal Frame & Crossbar
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 5;
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ctx.moveTo(x, GOAL_TOP);
+    ctx.lineTo(backX, GOAL_TOP);
+    ctx.lineTo(backX, GOAL_BOTTOM);
+    ctx.lineTo(x, GOAL_BOTTOM);
+    ctx.stroke();
+
+    // Goal Posts (Circles)
+    ctx.fillStyle = '#ffffff';
+    ctx.strokeStyle = '#0f172a';
+    ctx.lineWidth = 2;
+    [GOAL_TOP, GOAL_BOTTOM].forEach(py => {
+        ctx.beginPath();
+        ctx.arc(x, py, 6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+    });
+}
+
+function drawAimGuide() {
+    if (gameState.status !== 'PLAYING' || !controlledPlayer || !controlledPlayer.hasBall) return;
+
+    const aimX = mouse.active ? mouse.x : POOL_RIGHT;
+    const aimY = mouse.active ? mouse.y : (WORLD_H / 2 + touchInput.dy * (GOAL_WIDTH * 0.42));
+
+    const dx = aimX - ball.x;
+    const dy = aimY - ball.y;
+    const dist = Math.hypot(dx, dy);
+    if (dist < 10) return;
+
+    const angle = Math.atan2(dy, dx);
+    const charge = mouse.down ? Math.min(1, mouse.chargeTime / 0.85) : 0;
+    const isSkipReady = charge > 0.78;
+
+    ctx.save();
+    // Aiming dotted trajectory line
+    ctx.beginPath();
+    ctx.moveTo(ball.x, ball.y);
+    ctx.lineTo(ball.x + Math.cos(angle) * Math.min(dist, 260), ball.y + Math.sin(angle) * Math.min(dist, 260));
+    ctx.strokeStyle = isSkipReady ? 'rgba(56, 189, 248, 0.85)' : (mouse.down ? 'rgba(250, 204, 21, 0.8)' : 'rgba(255, 255, 255, 0.4)');
+    ctx.lineWidth = mouse.down ? 3.5 : 2;
+    ctx.setLineDash([8, 6]);
+    ctx.stroke();
+
+    // Target Reticle when tapped on pool
+    if (mouse.active) {
+        ctx.beginPath();
+        ctx.arc(aimX, aimY, 12, 0, Math.PI * 2);
+        ctx.strokeStyle = isSkipReady ? '#38bdf8' : '#facc15';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+    }
+
+    // Power Charge Gauge Bar above player when holding shot button
+    if (mouse.down) {
+        const barW = 54;
+        const barH = 8;
+        const bx = controlledPlayer.x - barW / 2;
+        const by = controlledPlayer.y - 34;
+
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+        ctx.beginPath();
+        ctx.roundRect(bx - 2, by - 2, barW + 4, barH + 4, 4);
+        ctx.fill();
+
+        ctx.fillStyle = isSkipReady ? '#38bdf8' : (charge > 0.3 ? '#facc15' : '#34d399');
+        ctx.beginPath();
+        ctx.roundRect(bx, by, barW * charge, barH, 3);
+        ctx.fill();
+
+        if (isSkipReady) {
+            ctx.font = '800 10px "Chakra Petch", sans-serif';
+            ctx.fillStyle = '#38bdf8';
+            ctx.textAlign = 'center';
+            ctx.fillText('SKIP READY', controlledPlayer.x, by - 5);
+        }
+    }
+    ctx.restore();
+}
+
+function drawBall() {
+    // Motion Trail
+    for (let i = 0; i < ball.trail.length; i++) {
+        const t = ball.trail[i];
+        const ratio = (i + 1) / ball.trail.length;
+        ctx.fillStyle = ball.shotType === 'skip'
+            ? `rgba(56, 189, 248, ${ratio * 0.45})`
+            : `rgba(250, 204, 21, ${ratio * 0.3})`;
+        ctx.beginPath();
+        ctx.arc(t.x, t.y - t.z * 0.6, ball.radius * ratio * 0.85, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // Water Shadow (grows smaller as ball rises in the air during lobs/passes)
+    ctx.fillStyle = 'rgba(4, 16, 26, 0.38)';
+    ctx.beginPath();
+    const shadowScale = Math.max(0.45, 1 - ball.z / 120);
+    ctx.ellipse(ball.x, ball.y + 4, ball.radius * shadowScale, ball.radius * 0.7 * shadowScale, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Actual Ball Position (offset upward by z height)
+    const drawY = ball.y - ball.z * 0.65;
+    const scale = 1 + ball.z * 0.004;
+
+    ctx.save();
+    ctx.translate(ball.x, drawY);
+    ctx.scale(scale, scale);
+    ctx.rotate(ball.spinAngle);
+
+    // Classic Yellow Water Polo Ball with Panel Seams
+    const ballGrad = ctx.createRadialGradient(-3, -3, 2, 0, 0, ball.radius);
+    ballGrad.addColorStop(0, '#fef08a');
+    ballGrad.addColorStop(0.65, '#eab308');
+    ballGrad.addColorStop(1, '#a16207');
+    ctx.fillStyle = ballGrad;
+    ctx.beginPath();
+    ctx.arc(0, 0, ball.radius, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = '#713f12';
+    ctx.lineWidth = 1.4;
+    ctx.stroke();
+
+    // Curved Panel Ribbing
+    ctx.beginPath();
+    ctx.arc(0, 0, ball.radius * 0.65, -0.8, 0.8);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(0, 0, ball.radius * 0.65, Math.PI - 0.8, Math.PI + 0.8);
+    ctx.stroke();
+
+    ctx.restore();
+}
+
+// --- HELPER MATH & UTILITIES ---
+function getNearestPlayerTo(x, y, team, excludeGK = false) {
+    let best = null;
+    let minD = Infinity;
+    for (const p of players) {
+        if (p.team !== team) continue;
+        if (excludeGK && p.role === 'GK') continue;
+        const d = Math.hypot(p.x - x, p.y - y);
+        if (d < minD) {
+            minD = d;
+            best = p;
+        }
+    }
+    return best;
+}
+
+function switchControlledPlayer() {
+    const fieldPlayers = players.filter(p => p.team === 'home' && p.role !== 'GK');
+    if (fieldPlayers.length === 0) return;
+
+    // Sort by proximity to the ball so switching feels intuitive
+    fieldPlayers.sort((a, b) => Math.hypot(a.x - ball.x, a.y - ball.y) - Math.hypot(b.x - ball.x, b.y - ball.y));
+    const idx = fieldPlayers.indexOf(controlledPlayer);
+    controlledPlayer = fieldPlayers[(idx + 1) % fieldPlayers.length];
+    floatingTexts.push(new FloatingCallout(controlledPlayer.x, controlledPlayer.y - 24, `#${controlledPlayer.number}`, '#38bdf8'));
+}
+
+function pointToSegmentDist(px, py, x1, y1, x2, y2) {
+    const l2 = (x2 - x1) ** 2 + (y2 - y1) ** 2;
+    if (l2 === 0) return Math.hypot(px - x1, py - y1);
+    let t = ((px - x1) * (x2 - x1) + (py - y1) * (y2 - y1)) / l2;
+    t = Math.max(0, Math.min(1, t));
+    return Math.hypot(px - (x1 + t * (x2 - x1)), py - (y1 + t * (y2 - y1)));
+}
+
+function triggerShake(intensity, duration) {
+    gameState.shakeIntensity = intensity;
+    gameState.shakeTime = duration;
+}
+
+function showBanner(title, subtitle, gradientClasses = 'from-sky-600 via-blue-500 to-cyan-500') {
+    const banner = document.getElementById('event-banner');
+    const card = document.getElementById('banner-card');
+    document.getElementById('banner-title').textContent = title;
+    document.getElementById('banner-sub').textContent = subtitle;
+
+    card.className = `px-8 py-4 rounded-2xl bg-gradient-to-r ${gradientClasses} border-2 border-white shadow-2xl`;
+    banner.classList.remove('hidden', 'banner-anim');
+    void banner.offsetWidth; // Force CSS reflow to restart animation
+    banner.classList.add('banner-anim');
+}
+
+function updateHUD() {
+    document.getElementById('hud-home-score').textContent = gameState.homeTeam.score;
+    document.getElementById('hud-away-score').textContent = gameState.awayTeam.score;
+    document.getElementById('hud-quarter').textContent = `Q${gameState.quarter}`;
+
+    // Dynamically update primary touch button label based on ball possession
+    const shootBtn = document.getElementById('touch-shoot');
+    const switchBtn = document.getElementById('touch-switch');
+    if (shootBtn && switchBtn) {
+        if (controlledPlayer && controlledPlayer.hasBall) {
+            shootBtn.innerHTML = '<span>PASS</span><span class="text-[10px] font-semibold tracking-wider text-amber-200">HOLD: SHOT</span>';
+            switchBtn.innerHTML = '<span>NEXT</span><span class="text-[9px] text-sky-300">PLAYER</span>';
+        } else {
+            shootBtn.innerHTML = '<span>LUNGE</span><span class="text-[10px] font-semibold tracking-wider text-emerald-200">STEAL</span>';
+            switchBtn.innerHTML = '<span>SWITCH</span><span class="text-[9px] text-emerald-300">DEFENDER</span>';
+        }
+    }
+
+    const mins = Math.floor(Math.max(0, gameState.gameClock) / 60);
+    const secs = Math.floor(Math.max(0, gameState.gameClock) % 60);
+    document.getElementById('hud-game-clock').textContent = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+
+    const shotEl = document.getElementById('hud-shot-clock');
+    shotEl.textContent = Math.ceil(Math.max(0, gameState.shotClock));
+    if (gameState.shotClock <= 5) {
+        shotEl.className = 'font-sport font-bold text-sm sm:text-base text-rose-500 animate-pulse';
+    } else {
+        shotEl.className = 'font-sport font-bold text-sm sm:text-base text-emerald-400';
+    }
+}
+
+// --- MAIN GAME UPDATE & RENDER LOOP ---
+function update(dt) {
+    waveTime += dt;
+
+    if (gameState.shakeTime > 0) {
+        gameState.shakeTime -= dt;
+    }
+
+    // Update ambient ripples, splashes, and floating callouts
+    ripples.forEach(r => r.update(dt));
+    ripples = ripples.filter(r => r.alpha > 0);
+
+    splashes.forEach(s => s.update(dt));
+    splashes = splashes.filter(s => s.life > 0);
+
+    floatingTexts.forEach(f => f.update(dt));
+    floatingTexts = floatingTexts.filter(f => f.life > 0);
+
+    if (gameState.status === 'MENU' || gameState.status === 'PAUSED' || gameState.status === 'GAMEOVER') {
+        return;
+    }
+
+    if (gameState.status === 'GOAL_CELEBRATION') {
+        gameState.stateTimer -= dt;
+        if (gameState.stateTimer <= 0) {
+            // Reset to half-pool after goal (Water polo rule: conceded team restarts at center)
+            const concededTeam = ball.lastTouchTeam === 'home' ? 'away' : 'home';
+            setupTeams(false);
+            const restartPlayer = players.find(p => p.team === concededTeam && p.role !== 'GK');
+            ball.reset(HALF_POOL_X, GOAL_CENTER_Y);
+            restartPlayer.x = HALF_POOL_X;
+            restartPlayer.y = GOAL_CENTER_Y;
+            giveBallTo(restartPlayer);
+            sfx.playWhistle(0.35, false);
+        }
+        return;
+    }
+
+    // Charge shot gauge while holding action button
+    if (mouse.down && controlledPlayer && controlledPlayer.hasBall) {
+        mouse.chargeTime += dt;
+    }
+
+    // Update Game & Shot Clocks during active play
+    if (gameState.status === 'PLAYING') {
+        gameState.gameClock -= dt;
+        if (gameState.possession) {
+            gameState.shotClock -= dt;
+            if (gameState.shotClock <= 0) {
+                // 30-Second Shot Clock Violation -> Turnover!
+                const newTeam = gameState.possession === 'home' ? 'away' : 'home';
+                const receiver = getNearestPlayerTo(ball.x, ball.y, newTeam, false);
+                giveBallTo(receiver);
+                sfx.playWhistle(0.45, true);
+                showBanner('SHOT CLOCK!', '30s VIOLATION - TURNOVER', 'from-amber-600 to-orange-600');
+            }
+        }
+
+        // End of Quarter Check
+        if (gameState.gameClock <= 0) {
+            if (gameState.quarter < config.totalQuarters) {
+                gameState.quarter++;
+                gameState.gameClock = config.quarterDuration;
+                sfx.playWhistle(0.6, true);
+                setupTeams(true);
+                showBanner(`QUARTER ${gameState.quarter}`, 'SWIM-OFF!', 'from-indigo-600 to-sky-500');
+            } else {
+                endMatch();
+                return;
+            }
+        }
+    }
+
+    // Update Swimmers & Ball
+    players.forEach(p => p.update(dt));
+    resolvePlayerCollisions();
+    updateBall(dt);
+    updateHUD();
+}
+
+function resolvePlayerCollisions() {
+    for (let i = 0; i < players.length; i++) {
+        for (let j = i + 1; j < players.length; j++) {
+            const a = players[i];
+            const b = players[j];
+            const dx = b.x - a.x;
+            const dy = b.y - a.y;
+            const dist = Math.hypot(dx, dy);
+            const minDist = a.radius + b.radius;
+            if (dist > 0 && dist < minDist) {
+                const overlap = (minDist - dist) * 0.5;
+                const nx = dx / dist;
+                const ny = dy / dist;
+                if (a.role !== 'GK') { a.x -= nx * overlap; a.y -= ny * overlap; }
+                if (b.role !== 'GK') { b.x += nx * overlap; b.y += ny * overlap; }
+            }
+        }
+    }
+}
+
+function render() {
+    ctx.save();
+
+    // Camera impact shake
+    if (gameState.shakeTime > 0) {
+        const sx = (Math.random() - 0.5) * gameState.shakeIntensity * 2;
+        const sy = (Math.random() - 0.5) * gameState.shakeIntensity * 2;
+        ctx.translate(sx, sy);
+    }
+
+    drawPool();
+
+    // Draw Ripples under swimmers
+    ripples.forEach(r => r.draw(ctx));
+
+    // Draw Aiming Guide
+    drawAimGuide();
+
+    // Draw Swimmers
+    players.forEach(p => p.draw(ctx));
+
+    // Draw Water Polo Ball
+    drawBall();
+
+    // Draw Surface Splashes & Floating Callouts
+    splashes.forEach(s => s.draw(ctx));
+    floatingTexts.forEach(f => f.draw(ctx));
+
+    ctx.restore();
+}
+
+let lastTimestamp = 0;
+function gameLoop(timestamp) {
+    const dt = Math.min(0.05, (timestamp - lastTimestamp) / 1000 || 0.016);
+    lastTimestamp = timestamp;
+
+    update(dt);
+    render();
+    requestAnimationFrame(gameLoop);
+}
+
+// --- RESPONSIVE CANVAS SIZING ---
+function resizeCanvas() {
+    const container = document.getElementById('game-container');
+    const aspect = WORLD_W / WORLD_H;
+    const isPortrait = container.clientHeight > container.clientWidth;
+    let w = container.clientWidth - (isPortrait ? 8 : 16);
+    let h = container.clientHeight - (isPortrait ? 140 : 16);
+
+    if (w / h > aspect) {
+        w = h * aspect;
+    } else {
+        h = w / aspect;
+    }
+    canvas.width = WORLD_W;
+    canvas.height = WORLD_H;
+    canvas.style.width = `${w}px`;
+    canvas.style.height = `${h}px`;
+    if (isPortrait) {
+        canvas.style.marginTop = '-70px';
+    } else {
+        canvas.style.marginTop = '0px';
+    }
+}
+window.addEventListener('resize', resizeCanvas);
+
+// --- INPUT EVENT LISTENERS (TOUCH & POINTER) ---
+function getCanvasCoords(clientX, clientY) {
+    const rect = canvas.getBoundingClientRect();
+    return {
+        x: ((clientX - rect.left) / rect.width) * WORLD_W,
+        y: ((clientY - rect.top) / rect.height) * WORLD_H
+    };
+}
+
+function handleActionRelease(isLob = false) {
+    if (gameState.status !== 'PLAYING' || !controlledPlayer) return;
+
+    if (controlledPlayer.hasBall) {
+        const charge = mouse.chargeTime;
+        mouse.down = false;
+        mouse.chargeTime = 0;
+
+        // Smart default target if user hasn't tapped a custom spot on the pool
+        let aimX = mouse.active ? mouse.x : POOL_RIGHT;
+        let aimY = mouse.active ? mouse.y : (WORLD_H / 2 + (Math.random() - 0.5) * (GOAL_WIDTH - 32));
+
+        if (isLob) {
+            executeShot(controlledPlayer, aimX, aimY, 'lob', 0.85);
+            return;
+        }
+
+        // Quick tap (< 0.24s) passes toward aimed or best open teammate; Hold shoots!
+        if (charge < 0.24) {
+            let bestMate = null;
+            if (mouse.active) {
+                let bestScore = Infinity;
+                const aimAngle = Math.atan2(aimY - controlledPlayer.y, aimX - controlledPlayer.x);
+
+                for (const p of players) {
+                    if (p.team !== 'home' || p === controlledPlayer) continue;
+                    const angToMate = Math.atan2(p.y - controlledPlayer.y, p.x - controlledPlayer.x);
+                    let diff = Math.abs(angToMate - aimAngle);
+                    if (diff > Math.PI) diff = Math.PI * 2 - diff;
+                    const dist = Math.hypot(p.x - controlledPlayer.x, p.y - controlledPlayer.y);
+
+                    if (diff < 0.75 && dist < 620) {
+                        const score = diff * 250 + dist * 0.2;
+                        if (score < bestScore) {
+                            bestScore = score;
+                            bestMate = p;
+                        }
+                    }
+                }
+            }
+            if (!bestMate) {
+                bestMate = findBestPassTarget(controlledPlayer);
+            }
+
+            if (bestMate) {
+                executePass(controlledPlayer, bestMate);
+            } else {
+                executeShot(controlledPlayer, aimX, aimY, 'normal', 0.65);
+            }
+        } else {
+            const power = Math.min(1, charge / 0.85);
+            const shotType = power > 0.78 ? 'skip' : 'normal';
+            // Always aim shots at the opponent's goal if user didn't tap near the goal
+            const shotTargetX = (mouse.active && mouse.x > LINE_6M_RIGHT - 60) ? mouse.x : POOL_RIGHT;
+            const shotTargetY = (mouse.active && mouse.x > LINE_6M_RIGHT - 60) ? mouse.y : (WORLD_H / 2 + (touchInput.dy * (GOAL_WIDTH * 0.42)));
+            executeShot(controlledPlayer, shotTargetX, shotTargetY, shotType, power);
+        }
+    } else {
+        mouse.down = false;
+        mouse.chargeTime = 0;
+        attemptSteal(controlledPlayer);
+    }
+}
+
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+// Touch-to-Aim directly on the pool canvas (for mobile/tablet precision passing & corner shooting)
+canvas.addEventListener('touchstart', (e) => {
+    if (gameState.status !== 'PLAYING') return;
+    e.preventDefault();
+    const touch = e.changedTouches[0];
+    const pos = getCanvasCoords(touch.clientX, touch.clientY);
+    mouse.x = pos.x;
+    mouse.y = pos.y;
+    mouse.active = true;
+}, { passive: false });
+
+canvas.addEventListener('touchmove', (e) => {
+    if (gameState.status !== 'PLAYING') return;
+    e.preventDefault();
+    const touch = e.changedTouches[0];
+    const pos = getCanvasCoords(touch.clientX, touch.clientY);
+    mouse.x = pos.x;
+    mouse.y = pos.y;
+    mouse.active = true;
+}, { passive: false });
+
+// Also allow clicking on the pool canvas to aim
+canvas.addEventListener('mousedown', (e) => {
+    if (gameState.status !== 'PLAYING') return;
+    const pos = getCanvasCoords(e.clientX, e.clientY);
+    mouse.x = pos.x;
+    mouse.y = pos.y;
+    mouse.active = true;
+});
+
+// Multi-touch Virtual Joystick & Ergonomic Thumb Buttons
+const joyBase = document.getElementById('joystick-base');
+const joyKnob = document.getElementById('joystick-knob');
+let joyTouchId = null;
+
+function handleJoyStart(clientX, clientY, id = 'mouse') {
+    joyTouchId = id;
+    updateJoystick(clientX, clientY);
+}
+
+function handleJoyMove(clientX, clientY) {
+    updateJoystick(clientX, clientY);
+}
+
+function handleJoyEnd() {
+    joyTouchId = null;
+    touchInput.dx = 0;
+    touchInput.dy = 0;
+    joyKnob.style.transform = `translate(0px, 0px)`;
+}
+
+joyBase.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    if (joyTouchId === null) {
+        const t = e.changedTouches[0];
+        handleJoyStart(t.clientX, t.clientY, t.identifier);
+    }
+}, { passive: false });
+
+window.addEventListener('touchmove', (e) => {
+    if (joyTouchId !== null && typeof joyTouchId === 'number') {
+        for (let i = 0; i < e.changedTouches.length; i++) {
+            if (e.changedTouches[i].identifier === joyTouchId) {
+                handleJoyMove(e.changedTouches[i].clientX, e.changedTouches[i].clientY);
+                break;
+            }
+        }
+    }
+}, { passive: true });
+
+window.addEventListener('touchend', (e) => {
+    if (joyTouchId !== null && typeof joyTouchId === 'number') {
+        for (let i = 0; i < e.changedTouches.length; i++) {
+            if (e.changedTouches[i].identifier === joyTouchId) {
+                handleJoyEnd();
+                break;
+            }
+        }
+    }
+});
+
+// Also allow mouse dragging on the virtual joystick
+joyBase.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    handleJoyStart(e.clientX, e.clientY, 'mouse');
+});
+window.addEventListener('mousemove', (e) => {
+    if (joyTouchId === 'mouse') handleJoyMove(e.clientX, e.clientY);
+});
+window.addEventListener('mouseup', () => {
+    if (joyTouchId === 'mouse') handleJoyEnd();
+});
+
+function updateJoystick(clientX, clientY) {
+    const rect = joyBase.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    let dx = clientX - cx;
+    let dy = clientY - cy;
+    const dist = Math.hypot(dx, dy);
+    const maxR = rect.width / 2 - 20;
+    if (dist > maxR) {
+        dx = (dx / dist) * maxR;
+        dy = (dy / dist) * maxR;
+    }
+    joyKnob.style.transform = `translate(${dx}px, ${dy}px)`;
+    touchInput.dx = dx / maxR;
+    touchInput.dy = dy / maxR;
+
+    if (controlledPlayer && !mouse.active && dist > 8) {
+        mouse.x = controlledPlayer.x + touchInput.dx * 220;
+        mouse.y = controlledPlayer.y + touchInput.dy * 220;
+    }
+}
+
+function bindTouchButton(id, onDown, onUp) {
+    const el = document.getElementById(id);
+    const start = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        el.classList.add('active-touch');
+        if (onDown) onDown();
+    };
+    const end = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        el.classList.remove('active-touch');
+        if (onUp) onUp();
+    };
+    el.addEventListener('touchstart', start, { passive: false });
+    el.addEventListener('touchend', end, { passive: false });
+    el.addEventListener('touchcancel', end, { passive: false });
+    el.addEventListener('mousedown', start);
+    el.addEventListener('mouseup', end);
+}
+
+bindTouchButton('touch-sprint',
+    () => { touchInput.sprint = true; },
+    () => { touchInput.sprint = false; }
+);
+
+bindTouchButton('touch-shoot',
+    () => {
+        mouse.down = true;
+        mouse.chargeTime = 0;
+    },
+    () => {
+        handleActionRelease(false);
+        mouse.active = false;
+    }
+);
+
+bindTouchButton('touch-lob',
+    () => {
+        handleActionRelease(true);
+        mouse.active = false;
+    },
+    null
+);
+
+bindTouchButton('touch-switch',
+    () => {
+        if (gameState.status !== 'PLAYING' || !controlledPlayer) return;
+        if (gameState.possession === 'away') {
+            const nearest = getNearestPlayerTo(ball.x, ball.y, 'home', true);
+            if (nearest && nearest !== controlledPlayer) {
+                controlledPlayer = nearest;
+            }
+            attemptSteal(controlledPlayer);
+        } else {
+            switchControlledPlayer();
+        }
+    },
+    null
+);
+
+// --- UI MENU & MATCH FLOW CONTROLS ---
+document.querySelectorAll('.color-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('ring-2', 'ring-sky-400', 'scale-110'));
+        btn.classList.add('ring-2', 'ring-sky-400', 'scale-110');
+        config.homeColor = btn.dataset.color;
+        config.homeText = btn.dataset.text;
+        config.homeName = btn.dataset.name;
+        document.getElementById('selected-team-label').textContent = config.homeName;
+    });
+});
+
+document.querySelectorAll('.diff-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.diff-btn').forEach(b => {
+            b.className = 'diff-btn py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-300 border border-slate-700';
+        });
+        btn.className = 'diff-btn py-1.5 rounded-lg text-xs font-bold bg-sky-600 text-white border border-sky-400';
+        config.difficulty = btn.dataset.diff;
+    });
+});
+
+document.querySelectorAll('.mode-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.mode-btn').forEach(b => {
+            b.className = 'mode-btn py-1 rounded-lg text-xs font-bold bg-slate-800 text-slate-300 border border-slate-700';
+        });
+        btn.className = 'mode-btn py-1 rounded-lg text-xs font-bold bg-sky-600 text-white border border-sky-400';
+        config.teamSize = parseInt(btn.dataset.mode, 10);
+    });
+});
+
+function startNewMatch() {
+    sfx.init();
+    gameState.quarter = 1;
+    gameState.gameClock = config.quarterDuration;
+    gameState.shotClock = 30;
+    gameState.homeTeam = { score: 0, shots: 0, steals: 0, saves: 0 };
+    gameState.awayTeam = { score: 0, shots: 0, steals: 0, saves: 0 };
+
+    // Update HUD Team Badges
+    const homeCap = document.getElementById('hud-home-cap');
+    homeCap.style.backgroundColor = config.homeColor;
+    homeCap.style.color = config.homeText;
+    document.getElementById('hud-home-name').textContent = config.homeName.split(' ')[0];
+
+    const awayCap = document.getElementById('hud-away-cap');
+    awayCap.style.backgroundColor = config.awayColor;
+    awayCap.style.color = config.awayText;
+    document.getElementById('hud-away-name').textContent = 'AWAY';
+
+    document.getElementById('menu-overlay').classList.add('hidden');
+    document.getElementById('gameover-overlay').classList.add('hidden');
+    document.getElementById('pause-overlay').classList.add('hidden');
+    document.getElementById('hud').classList.remove('hidden');
+    document.getElementById('hud-controls').classList.remove('hidden');
+    document.getElementById('touch-left').classList.remove('hidden');
+    document.getElementById('touch-right').classList.remove('hidden');
+
+    setupTeams(true);
+    updateHUD();
+    sfx.playWhistle(0.45, false);
+    showBanner('QUARTER 1', 'SPRINT FOR THE SWIM-OFF!', 'from-sky-600 via-blue-500 to-cyan-500');
+}
+
+function endMatch() {
+    gameState.status = 'GAMEOVER';
+    document.getElementById('hud').classList.add('hidden');
+    document.getElementById('hud-controls').classList.add('hidden');
+    document.getElementById('touch-left').classList.add('hidden');
+    document.getElementById('touch-right').classList.add('hidden');
+    document.getElementById('gameover-overlay').classList.remove('hidden');
+
+    const hScore = gameState.homeTeam.score;
+    const aScore = gameState.awayTeam.score;
+
+    const titleEl = document.getElementById('result-title');
+    if (hScore > aScore) {
+        titleEl.textContent = 'VICTORY!';
+        titleEl.className = 'font-sport font-bold text-4xl sm:text-5xl italic text-amber-400 mb-4';
+    } else if (hScore < aScore) {
+        titleEl.textContent = 'DEFEAT';
+        titleEl.className = 'font-sport font-bold text-4xl sm:text-5xl italic text-rose-400 mb-4';
+    } else {
+        titleEl.textContent = 'OVERTIME DRAW!';
+        titleEl.className = 'font-sport font-bold text-4xl sm:text-5xl italic text-sky-400 mb-4';
+    }
+
+    document.getElementById('end-home-name').textContent = config.homeName;
+    document.getElementById('end-home-score').textContent = hScore;
+    document.getElementById('end-away-name').textContent = config.awayName;
+    document.getElementById('end-away-score').textContent = aScore;
+
+    document.getElementById('stat-home-shots').textContent = gameState.homeTeam.shots;
+    document.getElementById('stat-away-shots').textContent = gameState.awayTeam.shots;
+    document.getElementById('stat-home-steals').textContent = gameState.homeTeam.steals;
+    document.getElementById('stat-away-steals').textContent = gameState.awayTeam.steals;
+    document.getElementById('stat-home-saves').textContent = gameState.homeTeam.saves;
+    document.getElementById('stat-away-saves').textContent = gameState.awayTeam.saves;
+
+    sfx.playWhistle(0.7, true);
+}
+
+document.getElementById('btn-start-match').addEventListener('click', startNewMatch);
+document.getElementById('btn-rematch').addEventListener('click', startNewMatch);
+
+document.getElementById('btn-menu-end').addEventListener('click', () => {
+    document.getElementById('gameover-overlay').classList.add('hidden');
+    document.getElementById('menu-overlay').classList.remove('hidden');
+    gameState.status = 'MENU';
+});
+
+document.getElementById('btn-pause').addEventListener('click', () => {
+    if (gameState.status === 'PLAYING' || gameState.status === 'SWIMOFF') {
+        gameState.prevStatus = gameState.status;
+        gameState.status = 'PAUSED';
+        document.getElementById('pause-overlay').classList.remove('hidden');
+    }
+});
+
+document.getElementById('btn-resume').addEventListener('click', () => {
+    document.getElementById('pause-overlay').classList.add('hidden');
+    gameState.status = gameState.prevStatus || 'PLAYING';
+});
+
+document.getElementById('btn-quit').addEventListener('click', () => {
+    gameState.status = 'MENU';
+    document.getElementById('pause-overlay').classList.add('hidden');
+    document.getElementById('hud').classList.add('hidden');
+    document.getElementById('hud-controls').classList.add('hidden');
+    document.getElementById('touch-left').classList.add('hidden');
+    document.getElementById('touch-right').classList.add('hidden');
+    document.getElementById('menu-overlay').classList.remove('hidden');
+});
+
+document.getElementById('btn-mute').addEventListener('click', () => {
+    sfx.muted = !sfx.muted;
+    document.getElementById('icon-sound-on').classList.toggle('hidden', sfx.muted);
+    document.getElementById('icon-sound-off').classList.toggle('hidden', !sfx.muted);
+});
+
+// --- BOOTSTRAP ---
+window.onload = function () {
+    resizeCanvas();
+    setupTeams(false);
+    requestAnimationFrame(gameLoop);
+};
+</script>
+</body>
+</html>
